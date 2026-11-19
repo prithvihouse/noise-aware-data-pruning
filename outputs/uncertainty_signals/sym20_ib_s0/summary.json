@@ -1,0 +1,11 @@
+{
+  "noise": "sym",
+  "eta": 0.2,
+  "seed": 0,
+  "method": "infobatch",
+  "epochs": 200,
+  "final": 65.57,
+  "best": 65.73,
+  "saved_fwd": 31.31,
+  "train_s": 992.5
+}

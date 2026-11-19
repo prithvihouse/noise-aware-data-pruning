@@ -1,0 +1,52 @@
+{
+  "c10_full": {
+    "dataset": "cifar10",
+    "infobatch": false,
+    "max_lr": 0.2,
+    "epochs": 200,
+    "final": 95.45,
+    "best": 95.56,
+    "saved_fwd": 0.0,
+    "train_s": 1408.8
+  },
+  "c10_ib": {
+    "dataset": "cifar10",
+    "infobatch": true,
+    "max_lr": 0.2,
+    "epochs": 200,
+    "final": 95.35,
+    "best": 95.35,
+    "saved_fwd": 36.4,
+    "train_s": 892.2
+  },
+  "c100_full": {
+    "dataset": "cifar100",
+    "infobatch": false,
+    "max_lr": 0.03,
+    "epochs": 200,
+    "final": 77.36,
+    "best": 77.44,
+    "saved_fwd": 0.0,
+    "train_s": 1446.3
+  },
+  "c100_ib": {
+    "dataset": "cifar100",
+    "infobatch": true,
+    "max_lr": 0.05,
+    "epochs": 200,
+    "final": 77.56,
+    "best": 77.76,
+    "saved_fwd": 33.37,
+    "train_s": 979.9
+  },
+  "c100_full_lr05": {
+    "dataset": "cifar100",
+    "infobatch": false,
+    "max_lr": 0.05,
+    "epochs": 200,
+    "final": 78.69,
+    "best": 78.75,
+    "saved_fwd": 0.0,
+    "train_s": 1476.4
+  }
+}

@@ -1,0 +1,28 @@
+# Local Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Local operating-system files and experiment locks
+.DS_Store
+__MACOSX/
+*.lock
+
+# Regenerable per-example tensor caches
+outputs/clip_vitb32_cifar100.pt
+outputs/uncertainty_signals/*/signals.pt
+
+# Fresh experiments and document build intermediates
+outputs_fresh/
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Distribution archives
+*.zip

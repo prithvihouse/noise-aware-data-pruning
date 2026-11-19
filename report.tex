@@ -1,0 +1,128 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage[section]{placeins}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,urlcolor=blue!60!black,linkcolor=black]{hyperref}
+\hypersetup{pdftitle={Noise-aware dynamic data pruning},pdfauthor={Prithvi Kurmi}}
+
+\setlist{itemsep=1pt,topsep=2pt}
+\captionsetup{font=small}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\newcommand{\fig}[1]{outputs/report/pdf_figs/#1.pdf}
+
+\begin{document}
+{\Large\bfseries Noise-aware dynamic data pruning}\\[5pt]
+{\bfseries Prithvi Kurmi}\\[2pt]
+{\small Department of Computer Science, Georgia State University\\
+Atlanta, Georgia, USA}\\[5pt]
+{\small CIFAR-100, ResNet-18, 200 epochs, one L4 GPU}
+
+\section{The problem}
+\href{https://proceedings.iclr.cc/paper_files/paper/2024/hash/ad1d7a4df30a9c0c46b387815a774a84-Abstract-Conference.html}{InfoBatch} (ICLR 2024) reduces training cost by skipping half of the low-loss samples in its pruning phase. Our clean-data runs reached 95.35\% on CIFAR-10 (paper 95.5) and 77.56\% on CIFAR-100 (paper 78.2), with 33 to 36\% fewer training examples processed. A matched-learning-rate full-training control on CIFAR-100 reached 78.69\%, so the reproduction has a 1.13-point accuracy gap to that control.
+
+Under label noise, high loss can indicate either a useful hard example or a wrong label. InfoBatch prioritizes high-loss examples until memorization lowers their loss. We study two filters together.
+\begin{itemize}
+\item \textbf{Filter 1 skips easy examples.} We apply InfoBatch's selection and rescaling rule to the retained pool.
+\item \textbf{Filter 2 drops likely mislabeled examples.} This is the focus of the experiments.
+\end{itemize}
+Related approaches provide alternative signals.
+\begin{itemize}
+\item \href{https://proceedings.mlr.press/v267/yang25as.html}{Yang et al.} (ICML 2025) combine feature density, CLIP semantic consistency, and augmentation. Our Yang-style adaptation uses frozen CLIP, the shared crop/flip augmentation, and deterministic top-35\% selection. It keeps selection active throughout training.
+\item \href{https://arxiv.org/abs/2604.07306}{AlignPrune} (CVPR 2026 Findings) scores how a sample's loss trajectory tracks a clean reference set. We ported its scoring and sampling logic into our training loop, using 1{,}000 clean reference images.
+\end{itemize}
+
+\section{Evaluating uncertainty signals}
+The initial proposal was to replace CLIP with the model's own uncertainty (MSP, energy). Before building a filter we measured noisy-label detection AUROC during training. A score of 0.5 indicates chance ranking.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{\fig{signals_auroc}}
+\caption{Noisy-label detection AUROC during plain InfoBatch training. The dashed line marks chance ranking.}
+\label{fig:auroc}
+\end{figure}
+
+\begin{itemize}
+\item \textbf{MSP and energy give weak separation.} Their mean AUROC from epoch 40 onward is 0.51 to 0.62 overall and 0.46 to 0.52 on the high-loss half. Both scores depend on the image and learned model parameters. Synthetic corruption is assigned independently of the image, but training on corrupted labels can still affect these scores.
+\item \textbf{Loss separation weakens during training.} This is consistent with memorization. Mechanistic attribution requires further experiments.
+\item \textbf{Label-aware features give stronger separation.} Mean centroid AUROC from epoch 40 is 0.80 to 0.85 under symmetric noise. Under asymmetric noise it is 0.706 for plain centroids and 0.809 for cleaned centroids. kNN reaches 0.81 to 0.82 under symmetric noise and 0.613 under asymmetric noise.
+\end{itemize}
+
+\section{Cleaned-centroid filtering}
+\begin{enumerate}
+\item Take each training image's penultimate feature $f_i$ (normalized, unaugmented view) and its given label $y_i$.
+\item Class centroid $c_k$ is the normalized mean feature of all images labeled $k$. Margin $m_i = \max_{k\neq y_i}\cos(f_i,c_k) - \cos(f_i,c_{y_i})$. Drop examples with $m_i > 0$. The zero threshold requires no noise-rate estimate. Related feature-based detection includes \href{https://arxiv.org/abs/2102.11628}{FINE} (NeurIPS 2021), which uses eigenspace alignment.
+\item \textbf{Cleaning recomputes each centroid} using images that currently agree with it ($m_i<0$), four times. An empty class retains its initial centroid. Class-dependent corruption can move a centroid toward a confusing class. The experiments test whether cleaning reduces that contamination.
+\item Refresh every 5 epochs from epoch 40 (zero-indexed). Exclusion continues through the final phase, when all retained examples are trained on. Every refresh scores all training images, allowing dropped examples to return. The recorded cleaned-centroid refresh cost totals about 74\,s per run.
+\end{enumerate}
+
+\section{How we tested it}
+\textbf{Noise.} Symmetric corruption flips a label to a random other class (20\% or 40\%). Asymmetric corruption flips it to the next class in the same CIFAR-100 superclass (40\%). Each training seed uses the same corruption mask and labels, generated with noise seed 0. Error bars therefore measure initialization and training-order variability on one corrupted dataset.
+
+\textbf{Compared methods.} Full training, InfoBatch, an oracle filter using the known corruption mask, a CLIP disagreement filter, Yang-style selection, the AlignPrune port, plain centroids, and cleaned centroids. The oracle is a privileged-label reference. All runs use the shared ResNet-18 recipe, 200 epochs, SGD, peak learning rate 0.05, and label smoothing 0.1. AlignPrune alone holds out 1{,}000 reference images, leaving 49{,}000 training images. Other methods use 50{,}000. Full training under asymmetric noise remains unmeasured.
+
+\textbf{Code and reproduction.} \texttt{README.md} maps the training, data, diagnostic, and plotting scripts and gives setup and headline commands. \texttt{run\_all.ipynb} supplies a Colab workflow with persistent outputs. Complete matching runs are skipped. \texttt{INFOBATCH\_OUTPUT\_DIR} selects a separate output location.
+
+\section{Results}
+\begin{table}[!htbp]
+\centering\small
+\begin{tabular}{lccccl}
+\toprule
+Method & Sym 20\% & Sym 40\% & Asym 40\% & Samples saved & Needs \\
+\midrule
+Full training & 65.55 & 48.00 & pending & 0\% & \\
+InfoBatch & 65.57 & 49.68 $\pm$ 0.25 & 47.65 & 29--31\% & \\
+Yang-style & 70.26 & 63.43 & 57.70 & 65\% & CLIP \\
+CLIP filter & 68.84 & 65.20 & 67.19 $\pm$ 0.17 & 59--65\% & CLIP \\
+AlignPrune port & 65.93 & 48.31 & 47.42 & 21\% & 1k clean labels \\
+Plain centroid & \textbf{74.61} & \textbf{70.03 $\pm$ 0.24} & 56.90 & 50--58\% & \\
+Cleaned centroid & 74.11 & 69.49 $\pm$ 0.18 & \textbf{69.17 $\pm$ 0.27} & 51--59\% & \\
+\midrule
+Oracle reference & 75.74 & 71.60 & 74.07 & 43--54\% & noise mask \\
+\bottomrule
+\end{tabular}
+\caption{Final test accuracy (\%). $\pm$ gives sample standard deviation over 3 training seeds. Other entries use one seed. Samples saved is the reduction in training examples processed relative to 200 full epochs on each method's eligible training pool.}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{\fig{acc_vs_compute}}
+\caption{Accuracy against reduction in training examples processed. Refresh passes and external-model preparation are outside this count. Error bars use sample standard deviation.}
+\end{figure}
+
+\begin{itemize}
+\item \textbf{InfoBatch retains low accuracy under substantial noise.} Symmetric 20\% gives 65.57\% versus full training's 65.55\%. Symmetric 40\% gives 49.68\% versus 48.00\%, with unequal seed counts. The asymmetric full-training comparison is pending.
+\item \textbf{Cleaned centroids improve accuracy in all three tested settings.} They exceed the CLIP filter by 5.3, 4.3, and 2.0 points and use the training model's features and given labels. Under asymmetric noise each cleaned-centroid seed exceeds each CLIP seed in these runs.
+\item \textbf{Cleaning has a noise-dependent trade-off.} It reduces accuracy by about 0.5 points under symmetric noise and raises it by 12.3 points in the seed-0 asymmetric comparison. Plain centroids have only one asymmetric run.
+\item \textbf{The CLIP filter removes many clean images.} Its final drop-set precision is 0.40 to 0.64. Under asymmetric noise, cleaned centroids drop 39.5\% of all examples with precision 0.834 and recall 0.828. A drop fraction near the true noise rate still includes both false positives and missed errors.
+\end{itemize}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{\fig{filter_quality}}
+\caption{Drop-set precision (top) and noisy-example recall (bottom), seed 0. The dashed precision line is the noise rate. Under asymmetric noise, final recall is 0.48 for plain centroids and 0.83 for cleaned centroids.}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{\fig{das_precision}}
+\caption{The AlignPrune port's low-score set and its share of noisy samples. The dashed line marks the noise rate.}
+\end{figure}
+
+\FloatBarrier
+
+\textbf{AlignPrune in this training recipe.} Its low-score set has limited enrichment for noisy labels after the 25-epoch window fills. Memorization is one possible explanation for the loss-trajectory behavior. We evaluated a port under our SGD recipe with one seed per setting. The different training pool and recipe limit conclusions about the original method.
+
+\textbf{Timing.} Samples saved counts training examples processed, excluding filter scoring and preparation. Under symmetric 40\% noise, cleaned centroids average 583.2\,s training plus 73.8\,s filtering, or 657.0\,s, versus 1{,}405.0\,s for full training (one seed), a 53.2\% reduction in these timed stages. Evaluation, data loading, and selection outside the timed regions are excluded. Historical CLIP embedding-generation time was unrecorded, so an end-to-end speed comparison is pending. Historical plain-centroid filter time includes an unused kNN calculation removed from the current implementation.
+
+\textbf{Limits and next experiments.} Noisy-label filtering was evaluated on one dataset and architecture with synthetic corruption and several single-seed rows. The fixed noise mask omits corruption-seed variability. Filtering without InfoBatch, a full-training asymmetric baseline, compute-matched comparisons, human label noise, and Evidential Deep Learning (EDL) signals remain to be tested. Related work already studies feature-based detection and robust pruning. These results support the effectiveness of a simple cleaned-centroid filter inside this pipeline. The original dependency versions were unrecorded, and the current code has CPU regression checks with a pinned environment. A fresh full-GPU reproduction remains pending.
+
+\end{document}
