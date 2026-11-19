@@ -11,7 +11,7 @@
 \usepackage[section]{placeins}
 \usepackage{xcolor}
 \usepackage[colorlinks=true,urlcolor=blue!60!black,linkcolor=black]{hyperref}
-\hypersetup{pdftitle={Noise-aware dynamic data pruning},pdfauthor={Prithvi Kurmi}}
+\hypersetup{pdftitle={Noise-aware dynamic data pruning},pdfauthor={Prithvi Kurmi},pdfsubject={DOI: 10.5281/zenodo.24366155}}
 
 \setlist{itemsep=1pt,topsep=2pt}
 \captionsetup{font=small}
@@ -24,7 +24,7 @@
 {\bfseries Prithvi Kurmi}\\[2pt]
 {\small Department of Computer Science, Georgia State University\\
 Atlanta, Georgia, USA}\\[5pt]
-{\small CIFAR-100, ResNet-18, 200 epochs, one L4 GPU}
+{\small CIFAR-100, ResNet-18, 200 epochs, one L4 GPU \quad$\cdot$\quad DOI: \href{https://doi.org/10.5281/zenodo.24366155}{10.5281/zenodo.24366155}}
 
 \section{The problem}
 \href{https://proceedings.iclr.cc/paper_files/paper/2024/hash/ad1d7a4df30a9c0c46b387815a774a84-Abstract-Conference.html}{InfoBatch} (ICLR 2024) reduces training cost by skipping half of the low-loss samples in its pruning phase. Our clean-data runs reached 95.35\% on CIFAR-10 (paper 95.5) and 77.56\% on CIFAR-100 (paper 78.2), with 33 to 36\% fewer training examples processed. A matched-learning-rate full-training control on CIFAR-100 reached 78.69\%, so the reproduction has a 1.13-point accuracy gap to that control.
